@@ -6,7 +6,6 @@ import axios, {
   AxiosResponse,
   Method,
 } from "axios";
-import defu from "defu";
 import qs from "qs";
 import Cookies from "js-cookie";
 
@@ -30,6 +29,7 @@ import type {
 
 // Load utils methods
 import { isBrowser } from "./utils";
+import defu from "./defu/defu";
 
 // Strapi options' default values
 const defaults: StrapiDefaultOptions = {
