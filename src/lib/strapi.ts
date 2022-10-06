@@ -28,7 +28,12 @@ import type {
 } from "./types";
 
 // Load utils methods
-import { isBrowser } from "./utils";
+import {
+  getLocalSatorageItem,
+  isBrowser,
+  removeLocalSatorageItem,
+  setLocalSatorageItem,
+} from "./utils";
 import defu from "./defu/defu";
 
 // Strapi options' default values
@@ -69,8 +74,8 @@ export class Strapi {
     });
 
     // Synchronize token before each request
-    this.axios.interceptors.request.use((config) => {
-      const token = this.getToken();
+    this.axios.interceptors.request.use(async (config) => {
+      const token = await this.getToken();
       if (token) {
         config.headers = {
           ...config.headers,
@@ -131,12 +136,12 @@ export class Strapi {
   public async login(
     data: StrapiAuthenticationData
   ): Promise<StrapiAuthenticationResponse> {
-    this.removeToken();
+    await this.removeToken();
     const { user, jwt }: StrapiAuthenticationResponse =
       await this.request<StrapiAuthenticationResponse>("post", "/auth/local", {
         data,
       });
-    this.setToken(jwt);
+    await this.setToken(jwt);
     this.user = user;
     return { user, jwt };
   }
@@ -153,7 +158,7 @@ export class Strapi {
   public async register(
     data: StrapiRegistrationData
   ): Promise<StrapiAuthenticationResponse> {
-    this.removeToken();
+    await this.removeToken();
     const { user, jwt }: StrapiAuthenticationResponse =
       await this.request<StrapiAuthenticationResponse>(
         "post",
@@ -162,7 +167,7 @@ export class Strapi {
           data,
         }
       );
-    this.setToken(jwt);
+    await this.setToken(jwt);
     this.user = user;
     return { user, jwt };
   }
@@ -175,7 +180,7 @@ export class Strapi {
    * @returns Promise<void>
    */
   public async forgotPassword(data: StrapiForgotPasswordData): Promise<void> {
-    this.removeToken();
+    await this.removeToken();
     return this.request("post", "/auth/forgot-password", { data });
   }
 
@@ -191,7 +196,7 @@ export class Strapi {
   public async resetPassword(
     data: StrapiResetPasswordData
   ): Promise<StrapiAuthenticationResponse> {
-    this.removeToken();
+    await this.removeToken();
     const { user, jwt }: StrapiAuthenticationResponse =
       await this.request<StrapiAuthenticationResponse>(
         "post",
@@ -200,7 +205,7 @@ export class Strapi {
           data,
         }
       );
-    this.setToken(jwt);
+    await this.setToken(jwt);
     this.user = user;
     return { user, jwt };
   }
@@ -240,7 +245,7 @@ export class Strapi {
     provider: StrapiAuthProvider,
     access_token?: string
   ): Promise<StrapiAuthenticationResponse> {
-    this.removeToken();
+    await this.removeToken();
     if (isBrowser()) {
       const params = qs.parse(window.location.search, {
         ignoreQueryPrefix: true,
@@ -254,7 +259,7 @@ export class Strapi {
         params: { access_token },
       }
     );
-    this.setToken(jwt);
+    await this.setToken(jwt);
     this.user = user;
     return { user, jwt };
   }
@@ -264,9 +269,9 @@ export class Strapi {
    *
    * @returns void
    */
-  public logout(): void {
+  public async logout(): Promise<void> {
     this.user = null;
-    this.removeToken();
+    await this.removeToken();
   }
 
   /**
@@ -371,7 +376,7 @@ export class Strapi {
       const user = await this.request<StrapiUser>("get", "/users/me");
       this.user = user;
     } catch (e) {
-      this.logout();
+      await this.logout();
     }
 
     return this.user;
@@ -382,19 +387,13 @@ export class Strapi {
    *
    * @returns string | null
    */
-  public getToken(): string | null {
-    const { useLocalStorage, key } = this.options.store;
-    if (isBrowser()) {
-      const token = useLocalStorage
-        ? window.localStorage.getItem(key)
-        : (Cookies.get(key) as string);
+  public async getToken(): Promise<string | null> {
+    const { key } = this.options.store;
+    const token = await getLocalSatorageItem(key);
 
-      if (typeof token === "undefined") return null;
+    if (typeof token === "undefined") return null;
 
-      return token;
-    }
-
-    return null;
+    return token;
   }
 
   /**
@@ -403,13 +402,9 @@ export class Strapi {
    * @param  {string} token - Token retrieve from login or register method
    * @returns void
    */
-  public setToken(token: string): void {
-    const { useLocalStorage, key, cookieOptions } = this.options.store;
-    if (isBrowser()) {
-      useLocalStorage
-        ? window.localStorage.setItem(key, token)
-        : Cookies.set(key, token, cookieOptions);
-    }
+  public async setToken(token: string): Promise<void> {
+    const { key } = this.options.store;
+    await setLocalSatorageItem(key, token);
   }
 
   /**
@@ -417,12 +412,8 @@ export class Strapi {
    *
    * @returns void
    */
-  public removeToken(): void {
-    const { useLocalStorage, key } = this.options.store;
-    if (isBrowser()) {
-      useLocalStorage
-        ? window.localStorage.removeItem(key)
-        : Cookies.remove(key);
-    }
+  public async removeToken(): Promise<void> {
+    const { key } = this.options.store;
+    await removeLocalSatorageItem(key);
   }
 }
